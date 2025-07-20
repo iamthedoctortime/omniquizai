@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5405928179302106"
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9891952889259620"
      crossorigin="anonymous"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -30,6 +30,19 @@
         @keyframes popIn { from { opacity: 0; transform: scale(0.95) translateY(-10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
         @keyframes bounceSlow { 0%, 100% { transform: translateY(-5%); animation-timing-function: cubic-bezier(0.8, 0, 1, 1); } 50% { transform: translateY(0); animation-timing-function: cubic-bezier(0, 0, 0.2, 1); } }
         
+        /* New splash screen animations */
+        @keyframes splashFadeIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        @keyframes splashFadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+        .animate-splash-in { animation: splashFadeIn 1s ease-out forwards; }
+        .animate-splash-out { animation: splashFadeOut 0.5s ease-out forwards; }
+
+
         .btn-3d {
           position: relative;
           border: none;
@@ -76,6 +89,28 @@
         .btn-3d:disabled .btn-3d-text {
             cursor: not-allowed;
         }
+
+        /* Keyframes for the circular loader animation */
+        @keyframes circular-dash {
+            0% {
+                stroke-dashoffset: 282.7; /* Circumference of a circle with radius 45 (2 * PI * 45) */
+                transform: rotate(0deg);
+            }
+            50% {
+                stroke-dashoffset: 0;
+                transform: rotate(360deg);
+            }
+            100% {
+                stroke-dashoffset: -282.7; /* Negative offset to continue rotation */
+                transform: rotate(720deg);
+            }
+        }
+
+        /* Keyframes for the full rotation of the loader */
+        @keyframes rotate-loader {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -109,7 +144,7 @@
 
         // Updated & Fixed OQ Logo Component
         const OQLogo = ({ className }) => (
-            <svg className={className} viewBox="0 0 100 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg className={className} viewBox="-15 -15 130 90" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <defs>
                     <linearGradient id="logoGradient" x1="0" y1="0" x2="1" y2="1">
                         <stop stopColor="#6366F1"/>
@@ -133,6 +168,37 @@
                 </g>
             </svg>
         );
+
+        // Circular Loader Component
+        const CircularLoader = ({ className = '' }) => {
+            const circumference = 2 * Math.PI * 45; // 2 * PI * radius (radius 45 for a 100x100 viewBox)
+
+            return (
+                <svg className={className} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="circularGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="#6366F1"/>
+                            <stop offset="100%" stopColor="#EC4899"/>
+                        </linearGradient>
+                    </defs>
+                    <circle
+                        cx="50"
+                        cy="50"
+                        r="45"
+                        stroke="url(#circularGradient)"
+                        strokeWidth="10" /* Thicker stroke */
+                        strokeLinecap="round"
+                        fill="none"
+                        style={{
+                            strokeDasharray: `${circumference} ${circumference}`,
+                            strokeDashoffset: `${circumference}`,
+                            transformOrigin: 'center',
+                            animation: 'circular-dash 1.5s ease-in-out infinite, rotate-loader 3s linear infinite'
+                        }}
+                    />
+                </svg>
+            );
+        };
 
 
         // Custom Dropdown Component
@@ -222,6 +288,36 @@
             </button>
         );
 
+        // New SplashScreen Component
+        const SplashScreen = ({ onAnimationEnd }) => {
+            const [fadeOut, setFadeOut] = React.useState(false);
+
+            React.useEffect(() => {
+                // Start fade out after a delay
+                const timer = setTimeout(() => {
+                    setFadeOut(true);
+                }, 2000); // Display for 2 seconds
+
+                return () => clearTimeout(timer);
+            }, []);
+
+            return (
+                <div 
+                    className={`fixed inset-0 bg-gray-50 bg-grid flex flex-col items-center justify-center z-50 transition-opacity duration-500 ease-out ${fadeOut ? 'animate-splash-out' : 'animate-splash-in'}`}
+                    onAnimationEnd={() => {
+                        if (fadeOut) {
+                            onAnimationEnd();
+                        }
+                    }}
+                >
+                    <div className="flex flex-col items-center justify-center">
+                        <OQLogo className="w-40 h-32 mb-4" />
+                        <h1 className="text-6xl md:text-7xl font-black text-gray-800 text-center tracking-tighter">OmniQuiz AI</h1>
+                        <p className="text-center text-gray-500 mt-4 text-xl">Your personal, customizable study partner. ✨</p>
+                    </div>
+                </div>
+            );
+        };
 
         // --- Main App Component ---
         function App() {
@@ -229,9 +325,11 @@
           const [view, setView] = React.useState('setup');
           const [inputText, setInputText] = React.useState('');
           const [quizData, setQuizData] = React.useState(null);
-          const [loading, setLoading] = React.useState(false);
+          const [loading, setLoading] = React.useState(false); // For quiz generation
+          const [isFileProcessing, setIsFileProcessing] = React.useState(false); // For file extraction
           const [error, setError] = React.useState('');
           const [fileUploadMessage, setFileUploadMessage] = React.useState('');
+          const [showSplash, setShowSplash] = React.useState(true); // New state for splash screen
           // Firebase related states removed: db, auth, userId, isAuthReady, savedQuizzes
           const [numQuestions, setNumQuestions] = React.useState('ai');
           const [questionTypes, setQuestionTypes] = React.useState(['multiple_choice', 'fill_in_the_blank', 'short_answer']);
@@ -274,9 +372,6 @@
             loadScript('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js', 'mammoth-script');
           }, []);
 
-          // Firebase Initialization and Auth (REMOVED)
-          // Fetch Saved Quizzes (REMOVED)
-
           const resetQuizState = React.useCallback(() => {
             setQuizData(null); setLoading(false); setError(''); setCurrentQuestionIndex(0);
             setSelectedAnswer(null); setFillInBlankAnswer(''); setTextAnswerInput(''); setIsCorrect(null);
@@ -295,7 +390,7 @@
 
             setFileUploadMessage(`Processing "${file.name}"...`);
             setError('');
-            setLoading(true);
+            setIsFileProcessing(true); // Set file processing loading state
 
             try {
                 const fileReadPromise = (fileToRead, readAs) => {
@@ -343,17 +438,53 @@
                 setError(e.message);
                 setFileUploadMessage('');
             } finally {
-                setLoading(false);
+                setIsFileProcessing(false); // Reset file processing loading state
                 event.target.value = null;
             }
           };
+          
+          // Helper for API calls with retry logic for 503 errors
+          const fetchWithRetry = async (url, options, maxRetries = 3) => {
+            let lastError;
+            for (let i = 0; i < maxRetries; i++) {
+              try {
+                const response = await fetch(url, options);
+                if (response.status === 503) {
+                  // Specific error for retrying
+                  throw new Error('Service Unavailable');
+                }
+                // For other non-ok statuses, we'll throw a generic error to be caught below
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error("API Error Response:", errorText);
+                    throw new Error(`API request failed with status ${response.status}`);
+                }
+                return response; // Success
+              } catch (error) {
+                lastError = error;
+                if (error.message === 'Service Unavailable') {
+                  const delay = Math.pow(2, i) * 1000 + Math.random() * 1000; // Exponential backoff with jitter
+                  console.log(`Service unavailable. Retrying in ${Math.round(delay / 1000)}s... (Attempt ${i + 1}/${maxRetries})`);
+                  await new Promise(resolve => setTimeout(resolve, delay));
+                } else {
+                  // For other errors (e.g., network issues, non-503 status codes), fail immediately
+                  throw error;
+                }
+              }
+            }
+            // If all retries fail, throw the last captured error
+            throw lastError;
+          };
+
 
           const generateQuiz = async () => {
             if (!inputText.trim()) { setError("Please provide text to generate a quiz."); return; }
             if (questionTypes.length === 0) { setError("Please select at least one question type."); return; }
-            setLoading(true); 
-            resetQuizState(); 
+            
+            resetQuizState();
+            setLoading(true);
             setFileUploadMessage('');
+
             try {
               const questionCountDesc = { 'ai': 'an optimal number up to 70', '1-10': '1-10', '10-20': '10-20', '20-30': '20-30', '30-40': '30-40', '40-50': '40-50', '50-60': '50-60', '60-70': '60-70' }[numQuestions];
               const prompt = `Create a quiz from the text below with ${questionCountDesc} questions of these types: ${questionTypes.join(', ')}. Output must be a valid JSON array of question objects.
@@ -364,18 +495,28 @@
               - "long_answer": needs "referenceAnswer" (detailed correct answer).
               Text: ${inputText}`;
               const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
-              const apiKey = "AIzaSyCamqljME7F5R92O6Hf-YDbWgy_rXTGk_w"; 
+              const apiKey = "";
               const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-              const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
               
-              if (!response.ok) {
-                const errorText = await response.text();
-                console.error("Gemini API Error on quiz generation:", errorText);
-                throw new Error(`API error: ${response.status}. See console for details.`);
+              const response = await fetchWithRetry(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+              
+              const result = await response.json();
+              let rawQuizText = result.candidates[0].content.parts[0].text;
+
+              if (rawQuizText.startsWith('```json') && rawQuizText.endsWith('```')) {
+                  rawQuizText = rawQuizText.substring(7, rawQuizText.length - 3).trim();
+              } else if (rawQuizText.startsWith('```') && rawQuizText.endsWith('```')) {
+                  rawQuizText = rawQuizText.substring(3, rawQuizText.length - 3).trim();
               }
 
-              const result = await response.json();
-              const parsedQuiz = JSON.parse(result.candidates[0].content.parts[0].text);
+              let parsedQuiz;
+              try {
+                  parsedQuiz = JSON.parse(rawQuizText);
+              } catch (parseError) {
+                  console.error("JSON Parse error:", parseError);
+                  throw new Error(`Failed to parse quiz data. The AI response might be malformed. Raw response: ${rawQuizText.substring(0, 200)}...`);
+              }
+              
               if (Array.isArray(parsedQuiz) && parsedQuiz.length > 0) {
                 setQuizData(parsedQuiz); setQuizQueue([...parsedQuiz]); setView('quiz');
               } else {
@@ -394,18 +535,28 @@
             try {
               const prompt = `Evaluate the user's answer. Question: "${question.question}". Reference Answer: "${question.referenceAnswer || question.correctAnswer}". User's Answer: "${userAnswer}". Output JSON with "evaluation" ("correct", "partially correct", "incorrect") and a concise "reason".`;
               const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
-              const apiKey = "AIzaSyCamqljME7F5R92O6Hf-YDbWgy_rXTGk_w"; 
+              const apiKey = "";
               const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-              const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+
+              const response = await fetchWithRetry(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
               
-              if (!response.ok) {
-                const errorText = await response.text();
-                console.error("Gemini API Error on evaluation:", errorText);
-                throw new Error(`Evaluation API error: ${response.status}. See console for details.`);
+              const result = await response.json();
+              let rawEvaluationText = result.candidates[0].content.parts[0].text;
+
+              if (rawEvaluationText.startsWith('```json') && rawEvaluationText.endsWith('```')) {
+                  rawEvaluationText = rawEvaluationText.substring(7, rawEvaluationText.length - 3).trim();
+              } else if (rawEvaluationText.startsWith('```') && rawEvaluationText.endsWith('```')) {
+                  rawEvaluationText = rawEvaluationText.substring(3, rawEvaluationText.length - 3).trim();
               }
 
-              const result = await response.json();
-              const parsedEvaluation = JSON.parse(result.candidates[0].content.parts[0].text);
+              let parsedEvaluation;
+              try {
+                  parsedEvaluation = JSON.parse(rawEvaluationText);
+              } catch (parseError) {
+                  console.error("JSON Parse error on evaluation:", parseError);
+                  throw new Error(`Failed to parse evaluation data. The AI response might be malformed. Raw response: ${rawEvaluationText.substring(0, 200)}...`);
+              }
+
               setEvaluationFeedback(parsedEvaluation);
               let scoreToAdd = 0;
               if (parsedEvaluation.evaluation === "correct") { setIsCorrect(true); scoreToAdd = 1; }
@@ -470,16 +621,11 @@
             }
           };
           
-          // saveQuiz and deleteQuiz functions removed
-
-          // loadQuiz function removed as there are no saved quizzes to load
-
           // --- Render Functions ---
           const renderSetup = () => (
             <div className="bg-white p-6 md:p-8 rounded-2xl shadow-cool w-full max-w-3xl animate-fade-in flex flex-col">
                 <div className="w-full flex justify-between items-center mb-6">
                     <h2 className="text-3xl font-bold text-gray-800 flex items-center"><LucideIcon iconName="Settings" className="mr-3 text-indigo-500"/>Quiz Setup</h2>
-                    {/* Removed "Saved Quizzes" button as Firebase is removed */}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5 w-full mb-6">
                     <CustomDropdown label="Number of Questions" options={[
@@ -501,12 +647,12 @@
                 <textarea className="w-full p-4 border-2 border-gray-300 rounded-xl mb-4 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-800 transition-all duration-200 hover:border-indigo-400" rows="8" placeholder="Paste your document content here..." value={inputText} onChange={(e) => setInputText(e.target.value)} />
                 {fileUploadMessage && <div className="mb-4 p-3 rounded-lg bg-blue-100 text-blue-800 font-medium text-center shadow-sm">{fileUploadMessage}</div>}
                 <div className="w-full flex flex-col md:flex-row items-center gap-4 mt-2">
-                    <Button3D onClick={() => fileInputRef.current.click()} className="btn-secondary w-full md:w-auto">
-                        <LucideIcon iconName="FileText" className="w-5 h-5" /> Upload File
+                    <Button3D onClick={() => fileInputRef.current.click()} className="btn-secondary w-full md:w-auto" disabled={isFileProcessing}>
+                        <LucideIcon iconName="FileText" className="w-5 h-5" /> {isFileProcessing ? 'Processing File...' : 'Upload File'}
                     </Button3D>
                     <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".txt,.md,.pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
-                    <Button3D onClick={generateQuiz} className="btn-primary w-full md:flex-1">
-                        <LucideIcon iconName="Brain" className="w-5 h-5" /> Generate Quiz
+                    <Button3D onClick={generateQuiz} className="btn-primary w-full md:flex-1" disabled={isFileProcessing || loading}>
+                        <LucideIcon iconName="Brain" className="w-5 h-5" /> {loading ? 'Generating Quiz...' : 'Generate Quiz'}
                     </Button3D>
                 </div>
             </div>
@@ -541,44 +687,46 @@
                 <p className="text-2xl text-gray-600 mb-6">Final Score: <span className="font-black text-indigo-600">{score}</span> / <span className="font-black text-gray-500">{quizData.length}</span></p>
                 {(correctionMode === 'end' || correctionMode === 'both') && (<div className="text-left my-8"><h3 className="text-2xl font-bold text-gray-800 mb-4 text-center">Final Report</h3><div className="space-y-4 max-h-80 overflow-y-auto p-4 bg-gray-50 rounded-xl border-2 border-gray-200">{userAnswers.map((ans, index) => (<div key={index} className="p-4 rounded-lg bg-white border"><p className="font-semibold text-gray-700">Q: {ans.question}</p><p className={`mt-2 ${ans.isCorrect || ans.evaluation?.evaluation === 'correct' ? 'text-green-700' : 'text-red-700'}`}>Your answer: <span className="font-mono bg-gray-200 px-2 py-1 rounded">{String(ans.userAnswer)}</span></p>{!(ans.isCorrect || ans.evaluation?.evaluation === 'correct') && (<p className="mt-1 text-blue-700">Correct answer: <span className="font-mono bg-blue-100 px-2 py-1 rounded">{String(ans.correctAnswer || ans.referenceAnswer)}</span></p>)}{ans.evaluation && <p className="mt-1 text-sm text-gray-600">Evaluation: {ans.evaluation.reason}</p>}</div>))}</div></div>)}
                 <div className="flex flex-col md:flex-row justify-center gap-4 mt-8">
-                    {/* Removed "Save Quiz" button as Firebase is removed */}
                     <Button3D onClick={resetToSetup} className="btn-purple"><LucideIcon iconName="Brain" className="w-5 h-5" /> New Quiz</Button3D>
                 </div>
             </div>
           );
 
-          // renderSavedQuizzes function removed
-
           const renderContent = () => {
             switch (view) {
               case 'quiz': return renderQuiz();
               case 'results': return renderResults();
-              // case 'savedQuizzes': return renderSavedQuizzes(); // Removed
               case 'setup': default: return renderSetup();
             }
           };
 
           return (
             <div className="min-h-screen bg-gray-50 bg-grid flex flex-col items-center justify-center p-4 font-sans selection:bg-indigo-200">
-              <div className="w-full max-w-3xl mx-auto">
-                <div className="flex justify-center items-center gap-2 mb-4">
-                    <OQLogo className="w-28 h-20" />
-                    <h1 className="text-5xl md:text-6xl font-black text-gray-800 text-center tracking-tighter">OmniQuiz AI</h1>
-                </div>
-                <p className="text-center text-gray-500 mb-8 text-lg">Your personal, customizable study partner. ✨</p>
-                {/* Removed userId display */}
-                {error && (<div className="bg-red-100 border-l-4 border-red-500 text-red-800 p-4 rounded-lg mb-4 shadow-md animate-fade-in" role="alert"><p className="font-bold">Error</p><p>{error}</p></div>)}
-                
-                {loading ? (
-                    <div className="bg-white p-6 md:p-8 rounded-2xl shadow-cool w-full max-w-3xl animate-fade-in flex flex-col items-center justify-center min-h-[400px]">
-                        <LucideIcon iconName="Loader2" className="w-16 h-16 text-indigo-500 animate-spin mb-6" />
-                        <h2 className="text-3xl font-bold text-gray-800">Generating Your Quiz</h2>
-                        <p className="text-gray-600 mt-2 text-lg">The AI is crafting your questions, please wait...</p>
+                {showSplash && <SplashScreen onAnimationEnd={() => setShowSplash(false)} />}
+                <div className={`w-full max-w-3xl mx-auto transition-opacity duration-500 ease-out ${showSplash ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+                    <div className="flex justify-center items-center gap-2 mb-4">
+                        <OQLogo className="w-28 h-20" />
+                        <h1 className="text-5xl md:text-6xl font-black text-gray-800 text-center tracking-tighter">OmniQuiz AI</h1>
                     </div>
-                ) : (
-                    renderContent()
-                )}
-              </div>
+                    <p className="text-center text-gray-500 mb-8 text-lg">Your personal, customizable study partner. ✨</p>
+                    {error && (<div className="bg-red-100 border-l-4 border-red-500 text-red-800 p-4 rounded-lg mb-4 shadow-md animate-fade-in" role="alert"><p className="font-bold">Error</p><p>{error}</p></div>)}
+                    
+                    {isFileProcessing ? ( // Show file processing specific loading screen
+                        <div className="bg-white p-6 md:p-8 rounded-2xl shadow-cool w-full max-w-3xl animate-fade-in flex flex-col items-center justify-center min-h-[400px]">
+                            <LucideIcon iconName="Loader2" className="w-16 h-16 text-blue-500 animate-spin mb-6" />
+                            <h2 className="text-3xl font-bold text-gray-800">Extracting Text</h2>
+                            <p className="text-gray-600 mt-2 text-lg">Please wait while we process your file...</p>
+                        </div>
+                    ) : loading ? ( // Show quiz generation loading screen
+                        <div className="bg-white p-6 md:p-8 rounded-2xl shadow-cool w-full max-w-3xl animate-fade-in flex flex-col items-center justify-center min-h-[400px]">
+                            <CircularLoader className="w-24 h-24 mb-6" /> {/* Using the new CircularLoader */}
+                            <h2 className="text-3xl font-bold text-gray-800">Generating Your Quiz</h2>
+                            <p className="text-gray-600 mt-2 text-lg">The AI is crafting your questions, please wait...</p>
+                        </div>
+                    ) : (
+                        renderContent()
+                    )}
+                </div>
             </div>
           );
         }
@@ -592,3 +740,4 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 </body>
 </html>
+
